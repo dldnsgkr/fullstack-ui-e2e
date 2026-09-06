@@ -43,8 +43,12 @@ export async function ensureSchema() {
 /**
  * Connects to the database, retrying a few times so the server also comes up
  * cleanly when the (provisioned) MySQL instance is started alongside it.
+ * Retry behaviour is tunable via DB_CONNECT_RETRIES / DB_CONNECT_RETRY_DELAY_MS.
  */
-export async function connectWithRetry(retries = 12, delayMs = 2500) {
+export async function connectWithRetry(
+  retries = Number(process.env.DB_CONNECT_RETRIES || 12),
+  delayMs = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 2500),
+) {
   let lastError;
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {

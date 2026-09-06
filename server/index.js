@@ -16,6 +16,21 @@ const HOST = process.env.HOST || '0.0.0.0';
 const MAX_NAME_LENGTH = 100;
 const MAX_MESSAGE_LENGTH = 2000;
 
+/** MySQL error codes that mean "the database itself is unreachable/misconfigured". */
+const DB_UNAVAILABLE_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+  'EPIPE',
+  'PROTOCOL_CONNECTION_LOST',
+  'ER_ACCESS_DENIED_ERROR',
+  'ER_BAD_DB_ERROR',
+  'ER_DBACCESS_DENIED_ERROR',
+  'ER_HOST_NOT_PRIVILEGED',
+]);
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
@@ -107,6 +122,11 @@ if (fs.existsSync(indexHtml)) {
 app.use((err, _req, res, _next) => {
   if (err?.type === 'entity.parse.failed' || (err instanceof SyntaxError && err.status === 400)) {
     return res.status(400).json({ error: 'Request body must be valid JSON.' });
+  }
+  const code = typeof err?.code === 'string' ? err.code : '';
+  if (DB_UNAVAILABLE_CODES.has(code)) {
+    console.error(`[guestbook] database error (${code}):`, err.message);
+    return res.status(503).json({ error: 'Database unavailable. Please try again later.' });
   }
   console.error('[guestbook] request failed:', err);
   return res.status(500).json({ error: 'Internal server error.' });
